@@ -25,6 +25,11 @@ use rand::rngs::ThreadRng;
 use rurel::mdp::Agent;
 
 struct MyAgent { state: MyState, between: Uniform<i32>, rng: ThreadRng }
+impl MyAgent {
+    fn reset(&mut self) {
+        self.state.x = 0;
+    }
+}
 impl Agent<MyState> for MyAgent {
 	fn current_state(&self) -> &MyState {
 		&self.state
@@ -40,21 +45,8 @@ use std::collections::HashMap;
 
 use rurel::AgentTrainer;
 use rurel::strategy::learn::QLearning;
-use rurel::strategy::explore::RandomExploration;
+use rurel::strategy::explore::{ ExplorationStrategy, RandomExploration };
 use rurel::strategy::terminate::{ TerminationStrategy, FixedIterations };
-
-struct Term {}
-impl Term {
-    fn new() -> Self {
-        Self {}
-    }
-}
-impl TerminationStrategy for Term {
-    fn should_stop(&mut self, state: &S) -> bool {
-        if state.x >= 7 { true }
-        else { false }
-    }
-}
 
 fn main() {
     println!("Rurel test");
@@ -72,19 +64,21 @@ fn main() {
     //      and an initial value of Q of 2.0.
     // Let the trainer run for 100000 iterations,
     //      randomly exploring new states.
-    trainer.train(&mut agent,
-                  &QLearning::new(0.2, 0.01, 0.),
-                  &Term::new(),
-                  //&mut FixedIterations::new(100_000),
-                  &RandomExploration::new());
-
+    for epoch in 0..100_000 {
+        trainer.train(&mut agent,
+                      &QLearning::new(0.2, 0.01, 0.),
+                      //&mut Term::new(),
+                      &mut FixedIterations::new(10),
+                      &RandomExploration::new());
+        agent.reset();
+    }
     // Query the learned value (Q) for a certain action in a certain state
     for i in 0..=7 {
         /* let entry: &HashMap<MyAction, f64> = */match trainer.expected_values(&MyState {
                 x: i,
             }) {
-            Some(entry) => println!("{:.0?}", entry),
-            None => println!("Oops"),
+            Some(entry) => println!("{} {:.0?}", i, entry),
+            None => println!("{} Oops", i),
         };
         //let val: f64 = entry.values().sum();
         //print!("{:.0}\t", val);
